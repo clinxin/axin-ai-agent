@@ -2,12 +2,15 @@ package com.clinxin.axinaiagent.app;
 
 import com.clinxin.axinaiagent.advisor.MyLoggerAdvisor;
 import com.clinxin.axinaiagent.chatmemory.FileBasedChatMemory;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,6 +21,12 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 @Component
 @Slf4j
 public class PlanApp {
+
+    @Resource
+    private VectorStore planAppVectorStore;
+
+    @Resource
+    private Advisor planAppRagCloudAdvisor;
 
     private final ChatClient chatClient;
 
@@ -52,7 +61,7 @@ public class PlanApp {
     }
 
     /**
-     * AI 基础会话（支持多伦对话记忆）
+     * AI 基础会话（支持多轮对话记忆）
      *
      * @param message
      * @param chatId
@@ -92,5 +101,27 @@ public class PlanApp {
                 .entity(PlanReport.class);
         log.info("doChatWithReport.planReport: {}", planReport);
         return planReport;
+    }
+
+    /**
+     * RAG 知识库问答功能
+     */
+    public String doChatWithRag(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                // 开启日志，便于观察效果
+                .advisors(new MyLoggerAdvisor())
+                // 应用知识库问答
+//                .advisors(new QuestionAnswerAdvisor(planAppVectorStore))
+                // 应用 RAG 检索增强服务（基于云知识库）
+                .advisors(planAppRagCloudAdvisor)
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        log.info("content: {}", content);
+        return content;
     }
 }

@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 基于文本持久化的对话记忆
+ * 基于文件持久化的对话记忆
  */
 public class FileBasedChatMemory implements ChatMemory {
 
@@ -29,18 +29,13 @@ public class FileBasedChatMemory implements ChatMemory {
         kryo.setInstantiatorStrategy(new StdInstantiatorStrategy());
     }
 
-    // 构造对象时，制定文件保存目录
+    // 构造对象时，指定文件保存目录
     public FileBasedChatMemory(String dir) {
         this.BASE_DIR = dir;
         File baseDir = new File(dir);
         if (!baseDir.exists()) {
             baseDir.mkdirs();
         }
-    }
-
-    @Override
-    public void add(String conversationId, Message message) {
-        saveConversation(conversationId, List.of(message));
     }
 
     @Override
@@ -110,5 +105,3 @@ public class FileBasedChatMemory implements ChatMemory {
         return new File(BASE_DIR, conversationId + ".kryo");
     }
 }
-
-

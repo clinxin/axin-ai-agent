@@ -37,5 +37,13 @@ class PlanAppTest {
         PlanApp.PlanReport planReport = planApp.doChatWithReport(message, chatId);
         Assertions.assertNotNull(planReport);
     }
+
+    @Test
+    void doChatWithRag() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "马上国庆放假了，但是我还没有做好国庆七天的计划，怎么办？";
+        String answer =  planApp.doChatWithRag(message, chatId);
+        Assertions.assertNotNull(answer);
+    }
 }
 
