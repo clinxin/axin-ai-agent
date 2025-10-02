@@ -20,6 +20,12 @@ public class PlanAppVectorStoreConfig {
     @Resource
     private PlanAppDocumenyLoader planAppDocumenyLoader;
 
+    @Resource
+    private MyTokenTextSplitter myTokenTextSplitter;
+
+    @Resource
+    private MyKeywordEnricher myKeywordEnricher;
+
     @Bean
     VectorStore planAppVectorStore(EmbeddingModel dashscopeEmbeddingModel) {
         SimpleVectorStore simpleVectorStore = SimpleVectorStore
@@ -27,7 +33,11 @@ public class PlanAppVectorStoreConfig {
                 .build();
         // 加载文档
         List<Document> documents = planAppDocumenyLoader.loadMarkdownDocuments();
-        simpleVectorStore.add(documents);
+        // 自主切分文档
+        // List<Document> splitDocument = myTokenTextSplitter.splitCustomized(documents);
+        // 自动补充关键词元信息
+        List<Document> enrichDocuments = myKeywordEnricher.enrichDocuments(documents);
+        simpleVectorStore.add(enrichDocuments);
         return simpleVectorStore;
     }
 }
