@@ -42,3 +42,7 @@ knife4j:
 #  level:
 #    org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor: debug
 
+#logging:
+#  level:
+#    org.springframework.ai: DEBUG
+
