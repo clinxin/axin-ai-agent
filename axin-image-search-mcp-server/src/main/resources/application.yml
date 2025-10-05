@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: axin-image-search-mcp-server
+  profiles:
+    active: sse, local
+server:
+  port: 8127
+# pexelsApi
+#pexels-api:
+#  api-key: 你的 pexels API 密钥

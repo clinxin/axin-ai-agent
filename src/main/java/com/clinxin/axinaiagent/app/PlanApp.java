@@ -13,6 +13,7 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 
@@ -41,6 +42,9 @@ public class PlanApp {
     private ToolCallback[] allTools;
 
     private final ChatClient chatClient;
+
+    @Resource
+    private ToolCallbackProvider toolCallbackProvider;
 
     private static final String SYSTEM_PROMPT = "扮演深耕计划制定与时间管理领域的专家。开场向用户表明身份，" +
             "告知用户可咨询任何计划相关的难题，如目标设定、时间安排、任务优先级等。围绕日常计划、项目计划、长期目标" +
@@ -169,4 +173,28 @@ public class PlanApp {
         log.info("content: {}", content);
         return content;
     }
+
+    /**
+     * AI 计划报告功能（调用 MCP 服务）
+     *
+     * @param message
+     * @param chatId
+     * @return
+     */
+    public String doChatWithMcp(String message, String chatId) {
+        ChatResponse response = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                // 开启日志，便于观察效果
+                .advisors(new MyLoggerAdvisor())
+                .tools(toolCallbackProvider)
+                .call()
+                .chatResponse();
+        String content = response.getResult().getOutput().getText();
+        log.info("content: {}", content);
+        return content;
+    }
+
 }
