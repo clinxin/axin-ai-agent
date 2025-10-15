@@ -124,6 +124,8 @@ public abstract class BaseAgent {
             messageList.add(new UserMessage(userPrompt));
             // 保存结果列表
             List<String> results = new ArrayList<>();
+            // 快速结束，连续 3 次无需执行就结束
+            int repeatCount = 0;
             try {
                 // 执行循环
                 for (int i = 0; i < maxSteps && state != AgentState.FINISHED; i++) {
@@ -133,6 +135,17 @@ public abstract class BaseAgent {
                     // 单步执行
                     String stepResult = step();
                     String result = "Step " + stepNumber + ": " + stepResult;
+                    if (repeatCount >= 3) {
+                        state = AgentState.FINISHED;
+                        results.add("连续 3 次没有行动，终止执行");
+                        sseEmitter.send("连续 3 次没有行动，终止执行");
+                        break;
+                    }
+                    if ("思考完成 - 无需行动".equals(stepResult)) {
+                        repeatCount++;
+                        continue;
+                    }
+                    repeatCount = 0;
                     results.add(result);
                     // 输出当前每一步的结构到 SSE
                     sseEmitter.send(result);
@@ -143,7 +156,7 @@ public abstract class BaseAgent {
                     results.add("Terminated: Reached max steps (" + maxSteps + ")");
                     sseEmitter.send("执行结束，达到最大步骤（" + maxSteps + "）");
                 }
-                // 正常介绍
+                // 正常结束
                 sseEmitter.complete();
             } catch (Exception e) {
                 state = AgentState.ERROR;

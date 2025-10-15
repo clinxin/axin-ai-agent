@@ -68,6 +68,7 @@ export default {
     const isLoading = ref(false)
     const chatId = ref('')
     const messagesContainer = ref(null)
+    const isTaskCompleted = ref(false) // 添加任务完成状态
     let sseClient = null
 
     // 生成聊天室ID
@@ -86,6 +87,17 @@ export default {
     // 发送消息
     const sendMessage = async () => {
       if (!inputMessage.value.trim() || isLoading.value) return
+
+      // 如果任务已完成，重置状态并允许新对话
+      if (isTaskCompleted.value) {
+        isTaskCompleted.value = false
+        messages.value = [] // 清空消息历史，开始新对话
+        // 确保关闭之前的连接
+        if (sseClient) {
+          sseClient.close()
+          sseClient = null
+        }
+      }
 
       const userMessage = {
         id: Date.now(),
@@ -122,8 +134,50 @@ export default {
           console.log('SSE连接已建立')
         })
         .on('message', (data) => {
+          // 如果任务已完成，忽略所有后续消息
+          if (isTaskCompleted.value) {
+            console.log('任务已完成，忽略后续消息:', data)
+            return
+          }
+          
           // 处理接收到的数据
           if (data && data.trim()) {
+            // 检查是否包含任务结束的信号
+            const isTaskFinished = data.includes('任务结束') || 
+                                  data.includes('doTerminate') || 
+                                  data.includes('执行结束') ||
+                                  data.includes('Terminated') ||
+                                  data.includes('工具 doTerminate 返回的结果') ||
+                                  data.includes('达到最大步骤')
+            
+            // 如果检测到任务结束，立即关闭SSE连接并返回
+            if (isTaskFinished) {
+              console.log('检测到任务结束信号，立即关闭SSE连接')
+              isLoading.value = false
+              isTaskCompleted.value = true // 设置任务完成状态
+              
+              // 添加任务结束提示消息
+              const finishMessage = {
+                id: `finish_${Date.now()}`,
+                type: 'ai',
+                content: '✅ 任务已完成，对话结束。您可以继续提出新的问题。',
+                timestamp: new Date()
+              }
+              messages.value.push(finishMessage)
+              
+              // 立即关闭SSE连接
+              if (sseClient) {
+                sseClient.close()
+                sseClient = null
+              }
+              
+              // 滚动到底部并返回，不处理后续消息
+              nextTick(() => {
+                scrollToBottom()
+              })
+              return
+            }
+            
             // 智多星AI智能体：每个步骤使用独立的气泡
             // 为每个步骤创建新的AI消息
             const stepMessageId = `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -144,6 +198,12 @@ export default {
         .on('error', (error) => {
           console.error('SSE错误:', error)
           isLoading.value = false
+          
+          // 如果任务已完成，不处理错误消息
+          if (isTaskCompleted.value) {
+            console.log('任务已完成，忽略SSE错误')
+            return
+          }
           
           // 检查是否已经有当前对话的AI消息，如果有则不显示错误消息
           const hasAiMessage = messages.value.some(msg => msg.type === 'ai' && msg.id.startsWith('step_'))
@@ -169,6 +229,12 @@ export default {
           console.log('SSE连接已关闭')
           isLoading.value = false
           
+          // 如果任务已完成，不处理连接关闭事件
+          if (isTaskCompleted.value) {
+            console.log('任务已完成，忽略连接关闭事件')
+            return
+          }
+          
           // 连接关闭时不需要修改ID，因为每个对话已经有唯一的ID
           
           // 清理连接
@@ -181,7 +247,7 @@ export default {
 
       // 设置超时保护，防止连接一直挂起
       const timeoutId = setTimeout(() => {
-        if (sseClient && isLoading.value) {
+        if (sseClient && isLoading.value && !isTaskCompleted.value) {
           console.log('SSE连接超时，主动关闭')
           isLoading.value = false
           
